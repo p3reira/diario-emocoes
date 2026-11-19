@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Diário de Emoções",
+    "slug": "diario-emocoes",
+    "version": "2.3.3",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#3b6e8f",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "br.ufpr.diarioemocoes"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Diário de Emoções",
+      "shortName": "Diário",
+      "themeColor": "#3b6e8f",
+      "backgroundColor": "#f6f5f2"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sharing",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-font"
+    ],
+    "scheme": "diarioemocoes"
+  }
+}

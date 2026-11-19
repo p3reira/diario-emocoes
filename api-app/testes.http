@@ -1,0 +1,96 @@
+@base = http://localhost:3000/api
+
+### 1. Cadastrar (aberta) — esperado: 201
+POST {{base}}/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Ana",
+  "sobrenome": "Ficticia",
+  "email": "ana.ficticia@exemplo.com",
+  "usuario": "ana.ficticia",
+  "senha": "senha123"
+}
+
+### 2. Login (aberta) — esperado: 200, com dados.token
+# @name login
+POST {{base}}/usuarios/login
+Content-Type: application/json
+
+{
+  "login": "ana.ficticia",
+  "senha": "senha123"
+}
+
+@token = {{login.response.body.dados.token}}
+
+### 3. Registro SEM consentimento — esperado: 403
+POST {{base}}/registros
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "humor": 4 }
+
+### 4. Dar consentimento — esperado: 200
+POST {{base}}/usuarios/eu/consentimento
+Authorization: Bearer {{token}}
+
+### 5. Criar registro — esperado: 201
+# @name novo
+POST {{base}}/registros
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "humor": 4,
+  "emocoes": ["calma", "alegria"],
+  "atividades": ["caminhada", "música"],
+  "nota": "Texto fictício para teste."
+}
+
+@idRegistro = {{novo.response.body.dados.id}}
+
+### 6. Listar meus registros (com filtro de período opcional) — esperado: 200
+GET {{base}}/registros?de=2026-11-01&ate=2026-11-30
+Authorization: Bearer {{token}}
+
+### 7. Buscar um registro — esperado: 200
+GET {{base}}/registros/{{idRegistro}}
+Authorization: Bearer {{token}}
+
+### 8. Alterar — esperado: 200
+PUT {{base}}/registros/{{idRegistro}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "humor": 5, "nota": null }
+
+### 9. Sem token — esperado: 401
+GET {{base}}/registros
+
+### 10. Preferências — esperado: 200
+PUT {{base}}/usuarios/eu/preferencias
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "tema": "escuro", "escala_fonte": 1.2, "lembrete_hora": "21:00" }
+
+### 11. Meu perfil — esperado: 200
+GET {{base}}/usuarios/eu
+Authorization: Bearer {{token}}
+
+### 12. Exportar meus dados (LGPD) — esperado: 200
+GET {{base}}/usuarios/eu/exportar
+Authorization: Bearer {{token}}
+
+### 13. Excluir um registro — esperado: 200
+DELETE {{base}}/registros/{{idRegistro}}
+Authorization: Bearer {{token}}
+
+### 14. Excluir todos os meus registros — esperado: 200
+DELETE {{base}}/registros
+Authorization: Bearer {{token}}
+
+### 15. Excluir minha conta (apaga os registros junto) — esperado: 200
+DELETE {{base}}/usuarios/eu
+Authorization: Bearer {{token}}
