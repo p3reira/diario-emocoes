@@ -1,4 +1,7 @@
 @base = http://localhost:3000/api
+# Preenchidas pelas respostas: rode o teste 2 (login) e o 5 (criar registro) antes dos que usam estas variáveis.
+@token = {{login.response.body.dados.token}}
+@idRegistro = {{novo.response.body.dados.id}}
 
 ### 1. Cadastrar (aberta) — esperado: 201
 POST {{base}}/usuarios
@@ -21,8 +24,6 @@ Content-Type: application/json
   "login": "ana.ficticia",
   "senha": "senha123"
 }
-
-@token = {{login.response.body.dados.token}}
 
 ### 3. Registro SEM consentimento — esperado: 403
 POST {{base}}/registros
@@ -47,8 +48,6 @@ Content-Type: application/json
   "atividades": ["caminhada", "música"],
   "nota": "Texto fictício para teste."
 }
-
-@idRegistro = {{novo.response.body.dados.id}}
 
 ### 6. Listar meus registros (com filtro de período opcional) — esperado: 200
 GET {{base}}/registros?de=2026-11-01&ate=2026-11-30
