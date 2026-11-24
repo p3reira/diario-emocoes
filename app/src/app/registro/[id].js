@@ -4,7 +4,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { FormRegistro, SeloHumor } from '../../componentes/diario';
-import { Botao, Cartao, Carregando, Mensagem, Tela, Texto, confirmar } from '../../componentes/ui';
+import { Botao, Cartao, Carregando, Mensagem, Tela, Texto } from '../../componentes/ui';
+import { useConfirmacao } from '../../componentes/confirmacao';
 import { alterarRegistro, buscarRegistro, excluirRegistro } from '../../servicos/api';
 import { diaDaSemana, formatarData, rotulo } from '../../util/diario';
 
@@ -29,8 +30,11 @@ export default function TelaRegistro() {
     buscarRegistro(id).then(setRegistro).catch((e) => setErro(e.message));
   }, [id]);
 
+  const confirmar = useConfirmacao();
+
   async function excluir() {
-    if (!(await confirmar('Excluir este registro?', 'Ele será apagado para sempre.', 'Excluir'))) return;
+    const { confirmado } = await confirmar({ titulo: 'Excluir este registro?', mensagem: 'Ele será apagado para sempre.', textoConfirmar: 'Excluir' });
+    if (!confirmado) return;
     setExcluindo(true);
     try {
       await excluirRegistro(id);

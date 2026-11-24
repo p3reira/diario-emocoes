@@ -53,6 +53,10 @@ Content-Type: application/json
 GET {{base}}/registros?de=2026-11-01&ate=2026-11-30
 Authorization: Bearer {{token}}
 
+### 6b. Data do registro mais antigo (Histórico: há mais para carregar?) — esperado: 200
+GET {{base}}/registros/mais-antigo
+Authorization: Bearer {{token}}
+
 ### 7. Buscar um registro — esperado: 200
 GET {{base}}/registros/{{idRegistro}}
 Authorization: Bearer {{token}}
@@ -86,10 +90,37 @@ Authorization: Bearer {{token}}
 DELETE {{base}}/registros/{{idRegistro}}
 Authorization: Bearer {{token}}
 
-### 14. Excluir todos os meus registros — esperado: 200
+### 14. Trocar e-mail SEM a senha atual — esperado: 403 ("Senha atual incorreta")
+PUT {{base}}/usuarios/eu
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "email": "ana.nova@exemplo.com" }
+
+### 15. Trocar e-mail COM a senha atual — esperado: 200
+PUT {{base}}/usuarios/eu
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "email": "ana.nova@exemplo.com", "senhaAtual": "senha123" }
+
+### 16. Excluir todos os registros com senha errada — esperado: 403 (nada é apagado)
 DELETE {{base}}/registros
 Authorization: Bearer {{token}}
+Content-Type: application/json
 
-### 15. Excluir minha conta (apaga os registros junto) — esperado: 200
+{ "senha": "errada" }
+
+### 17. Excluir todos os meus registros — esperado: 200
+DELETE {{base}}/registros
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "senha": "senha123" }
+
+### 18. Excluir minha conta (apaga os registros junto) — esperado: 200
 DELETE {{base}}/usuarios/eu
 Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "senha": "senha123" }

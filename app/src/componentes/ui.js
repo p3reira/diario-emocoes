@@ -6,7 +6,6 @@ import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Keyboard,
   Platform,
@@ -184,9 +183,13 @@ export function IconeRedondo({ nome, tamanho = 22, cor = 'sobrePrimariaSuave', f
   );
 }
 
-export function Campo({ rotulo, dica, style, multiline, rodape, onFocus, ...props }) {
+export function Campo({ rotulo, dica, style, multiline, rodape, onFocus, onBlur, ...props }) {
   const { cores, fonte } = useTema();
   const { mostrarCampoFocado } = useContext(TecladoContexto);
+  // Destaque do campo selecionado feito pelo próprio app (borda roxa que acompanha
+  // o arredondamento). No navegador, o contorno quadrado padrão (outline) é desligado
+  // abaixo; o foco continua visível, então a acessibilidade pelo teclado se mantém.
+  const [focado, setFocado] = useState(false);
   return (
     <View style={{ marginBottom: 16 }}>
       {rotulo ? (
@@ -196,8 +199,9 @@ export function Campo({ rotulo, dica, style, multiline, rodape, onFocus, ...prop
       ) : null}
       <View
         style={{
-          borderWidth: 1,
-          borderColor: cores.borda,
+          borderWidth: focado ? 2 : 1,
+          margin: focado ? 0 : 1, // compensa a borda mais grossa: o campo não "pula"
+          borderColor: focado ? cores.primaria : cores.borda,
           borderRadius: multiline ? 24 : 16,
           backgroundColor: cores.campo,
           overflow: 'hidden',
@@ -218,13 +222,19 @@ export function Campo({ rotulo, dica, style, multiline, rodape, onFocus, ...prop
               fontSize: fonte(16),
               fontFamily: FONTES.regular,
               color: cores.texto,
+              outlineStyle: 'none', // só existe na web: tira o quadrado do navegador
             },
             style,
           ]}
           {...props}
           onFocus={(e) => {
+            setFocado(true);
             mostrarCampoFocado(); // trocar de campo com o teclado já aberto também rola
             onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocado(false);
+            onBlur?.(e);
           }}
         />
         {rodape ? <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>{rodape}</View> : null}
@@ -440,18 +450,4 @@ export function AvisoFlutuante({ texto, acao, aoAgir, visivel }) {
       ) : null}
     </Animated.View>
   );
-}
-
-// Confirmação antes de ações que não têm volta (item 56 do guia).
-// Alert.alert não mostra botões no navegador, por isso o window.confirm na web.
-export function confirmar(titulo, mensagem, textoConfirmar = 'Confirmar') {
-  if (Platform.OS === 'web') {
-    return Promise.resolve(window.confirm(`${titulo}\n\n${mensagem}`));
-  }
-  return new Promise((resolver) => {
-    Alert.alert(titulo, mensagem, [
-      { text: 'Cancelar', style: 'cancel', onPress: () => resolver(false) },
-      { text: textoConfirmar, style: 'destructive', onPress: () => resolver(true) },
-    ], { cancelable: true, onDismiss: () => resolver(false) });
-  });
 }

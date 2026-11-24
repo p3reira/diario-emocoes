@@ -36,7 +36,7 @@ app.get('/saude', (req, res) => {
 app.get('/', (req, res) => {
     res.json({
         mensagem: "API do app Diário de Emoções funcionando!",
-        versao: '2.3.3',
+        versao: '2.4.3',
         endpoints: {
             cadastrar: 'POST /api/usuarios',
             login: 'POST /api/usuarios/login',

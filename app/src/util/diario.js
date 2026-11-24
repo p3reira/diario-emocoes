@@ -64,10 +64,12 @@ const DIAS_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta'
 
 // "Hoje, 16/11", "Ontem, 15/11" ou "sex., 14/11".
 export function rotuloDia(iso) {
-  const [, mes, dia] = iso.split('-');
+  const [ano, mes, dia] = iso.split('-');
   if (iso === dataISO()) return `Hoje, ${dia}/${mes}`;
   if (iso === diasAtras(1)) return `Ontem, ${dia}/${mes}`;
-  return `${diaDaSemana(iso).slice(0, 3)}., ${dia}/${mes}`;
+  // Registros de outro ano (vistos ao carregar os mais antigos) mostram o ano também.
+  const doAno = ano === dataISO().slice(0, 4) ? '' : `/${ano}`;
+  return `${diaDaSemana(iso).slice(0, 3)}., ${dia}/${mes}${doAno}`;
 }
 
 export function diaDaSemana(iso) {

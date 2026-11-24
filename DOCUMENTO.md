@@ -32,14 +32,14 @@ O repositório tem duas partes:
 | Cadastro e login | Login, Criar conta | Os dados são sensíveis e precisam ficar ligados a uma conta protegida por senha. |
 | Aviso de dados sensíveis e consentimento | Boas-vindas | Exigência da LGPD para dados de saúde: a pessoa precisa saber o que é coletado e para quê **antes** do primeiro registro. A API também recusa registros sem consentimento. |
 | Registrar humor (criar) | Registrar | Núcleo do app. Só o humor é obrigatório; contexto (sono, estudo, amigos...), emoções e anotação são opcionais para o registro levar menos de um minuto. Data e hora vêm preenchidas e podem ser trocadas para até 60 dias atrás (para o "esqueci de registrar ontem"); um momento futuro não é aceito, porque o diário guarda o que já foi sentido. Depois de salvar, um aviso permite **desfazer** por alguns segundos. |
-| Histórico (listar e consultar) | Registros | Mostra um dia por vez: a **curva do dia** (humor ao longo das horas), o resumo do dia e os registros daquele dia. |
+| Histórico (listar e consultar) | Registros | Mostra um dia por vez: a **curva do dia** (humor ao longo das horas), o resumo do dia e os registros daquele dia. Abre com os últimos 60 dias; "Carregar registros mais antigos" busca mais 60 de cada vez e some quando não há mais nada (a API informa a data do primeiro registro em `GET /api/registros/mais-antigo`). |
 | Gentil descoberta | Registros | Compara a média de humor com e sem cada contexto e, quando há dados suficientes, mostra onde o humor costuma ficar melhor. Ajuda a pessoa a perceber padrões sem precisar interpretar gráficos. |
 | Alterar e excluir registro | Registro | Completa o CRUD da entidade `registros`. Alterar permite corrigir ou rever um dia; excluir dá controle à pessoa. |
 | Resumo dos últimos 7 dias | Início | Visão rápida para refletir sem precisar abrir o histórico. |
 | **Kit para dias difíceis** (inovação) | Meu kit, Início | Transforma o que funcionou nos dias bons da pessoa em versões de 5 minutos e sugere uma técnica de autocuidado conforme a emoção do último registro. Ver item 9. |
 | Relatório em PDF | Relatório em PDF | Resumo e registros de um período (7, 30 ou 90 dias, datas escolhidas ou todo o período), para guardar ou levar a uma consulta. |
-| Tema, tamanho do texto e lembrete | Ajustes | Personalização e acessibilidade, salvas na conta. |
-| Exportar, apagar registros, excluir conta | Ajustes, Meus dados | Direitos do titular previstos na LGPD. |
+| Tema, tamanho do texto e lembrete | Ajustes | Personalização e acessibilidade, salvas na conta. O lembrete também vira **notificação do celular** no horário escolhido, só nos dias sem registro. |
+| Exportar, apagar registros, excluir conta | Ajustes, Meus dados | Direitos do titular previstos na LGPD. Apagar os registros e excluir a conta pedem a senha de novo; trocar e-mail, usuário ou senha pede a senha atual. |
 | Política de privacidade e Ajuda agora (CVV 188) | Abertas a todos | Precisam estar acessíveis mesmo sem login. |
 
 ---
@@ -72,6 +72,7 @@ O repositório tem duas partes:
 | @expo/vector-icons | 15.0 | Ícones (rostos de humor, abas, contextos) que acompanham o texto. |
 | react-native-svg | 15.16 | Desenha a curva do dia (linhas, área com degradê e pontos) com qualidade em qualquer tamanho de tela, sem biblioteca de gráficos pronta: o gráfico fica simples e explicável. |
 | expo-font + @expo-google-fonts/plus-jakarta-sans | ~58.0 / 0.4 | Fonte Plus Jakarta Sans, arredondada e legível, que combina com o tom acolhedor do app. Um arquivo por peso, porque no Android o `fontWeight` não funciona com fontes carregadas. |
+| expo-notifications | ~58.1 | Lembrete como notificação **local** (agendada no próprio celular, sem servidor de push). O texto é genérico, sem dados de saúde. No Expo Go a notificação local funciona; só o push remoto não. |
 | expo-build-properties | ~58.0 | Libera conexão HTTP com a API na rede local no APK (o Android bloqueia por padrão). Só para desenvolvimento; em produção seria HTTPS (seção 4.4). |
 
 ---
@@ -200,7 +201,7 @@ O perfil `preview` usa `buildType: apk` para gerar um APK instalável direto, em
 | Facilidade de uso | Registro com um único campo obrigatório; seções curtas; navegação inferior com 5 abas fixas; aviso com "Desfazer" depois de salvar; mensagens de erro em linguagem simples | Registrar precisa ser rápido para virar hábito; a navegação previsível reduz a carga cognitiva. |
 | Desempenho | Listagem filtrada por período no banco (índice `usuario_id, data, hora`); o histórico mostra um dia por vez; curva desenhada em SVG, sem biblioteca de gráficos pesada; Kit e resumo calculados no aparelho, sem chamada extra | Menos dados trafegando e telas que respondem rápido mesmo com muitos registros. |
 | Manutenibilidade | Camadas separadas na API; telas sem `fetch`; regras do Kit em funções puras; componentes e cores centralizados | Cada mudança fica em um lugar só. |
-| Confiabilidade | Validação de todos os campos na API (datas reais, humor de 1 a 5, limites de tamanho); o Kit não depende de serviço externo; confirmação antes de excluir | O app não pode perder ou corromper dados sensíveis, e a inovação funciona mesmo sem internet além da API do app. |
+| Confiabilidade | Validação de todos os campos na API (datas reais, humor de 1 a 5, limites de tamanho); o Kit não depende de serviço externo; confirmação antes de excluir, numa janela do próprio app (igual no celular e no navegador), com senha para o que não tem volta | O app não pode perder ou corromper dados sensíveis, e a inovação funciona mesmo sem internet além da API do app. |
 
 ---
 
@@ -218,8 +219,9 @@ O perfil `preview` usa `buildType: apk` para gerar um APK instalável direto, em
 | Aviso e consentimento antes do 1º registro | tela `consentimento.js`; `POST /api/usuarios/eu/consentimento`; a API recusa registro sem consentimento (403) | O consentimento é obrigatório para dados sensíveis e não pode ser pulado nem pela API. |
 | Política de privacidade | tela `privacidade.js` (aberta sem login, link no login, no cadastro, nas boas-vindas e nos Ajustes) | Linguagem simples: o que, para quê, onde e com quem (ninguém). |
 | Excluir dados e conta | aba Ajustes; `DELETE /api/registros` e `DELETE /api/usuarios/eu` (`ON DELETE CASCADE`) | A exclusão da conta apaga tudo de verdade. |
+| Reautenticação | `api-app/src/utils/reautenticacao.js`; janela `app/src/componentes/confirmacao.js`; tela Meus dados | Excluir a conta e apagar todos os registros pedem a senha de novo; trocar e-mail, usuário ou senha pede a senha atual. A API confere com `bcrypt.compare` e responde 403 se estiver errada (não 401, para não encerrar a sessão). Estar logado não basta: protege contra o celular emprestado ou esquecido destravado. |
 | Nenhum envio de texto à IA | `app/src/util/kit.js`; seção "O Kit e a inteligência artificial" da política (`privacidade.js`) | O app não usa IA: o Kit é calculado no aparelho, e a política avisa que nenhum texto ou dado é enviado a serviços de IA ou a terceiros. |
-| Nada guardado no celular | token só na memória; PDF gravado no cache e apagado logo depois de compartilhar (`app/src/servicos/arquivos.js`) | Confere com o que a política promete: ao fechar o app, nenhum dado do diário fica no aparelho. |
+| Nada guardado no celular | token só na memória; PDF gravado no cache e apagado logo depois de compartilhar (`app/src/servicos/arquivos.js`) | Confere com o que a política promete: ao fechar o app, nenhum dado do diário fica no aparelho. Se o lembrete estiver ligado, o celular guarda só os horários dos próximos avisos, com texto genérico; são cancelados ao desligar o lembrete, sair ou excluir a conta (`app/src/servicos/notificacoes.js`). |
 | Dados fictícios | prints em `prints/` e testes | Exigência do trabalho. |
 
 ---
@@ -255,7 +257,7 @@ Com `useWindowDimensions`, o app sabe a largura e a orientação. Em telas larga
 ### Sensibilidade ao contexto
 O app se adapta ao **horário do dia** e ao **histórico de uso**:
 - a saudação e o convite mudam (manhã, tarde, noite, madrugada; de madrugada, lembra do CVV);
-- se o horário do lembrete já passou e não há registro hoje, aparece um aviso no Início e o sino do cabeçalho ganha um ponto (é um lembrete dentro do app, não uma notificação do sistema);
+- se o horário do lembrete já passou e não há registro hoje, aparece um aviso no Início e o sino do cabeçalho ganha um ponto; com o app fechado, o celular mostra uma notificação nesse horário, também só nos dias sem registro (tocar nela abre o Registrar);
 - se o último registro foi "Mal" ou "Muito mal", o Início oferece o Kit e os canais de ajuda;
 - no Kit, a técnica de autocuidado muda conforme as emoções do último registro (ansiedade, raiva, tristeza, cansaço).
 

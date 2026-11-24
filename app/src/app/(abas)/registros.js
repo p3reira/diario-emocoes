@@ -10,11 +10,13 @@ import { CurvaDia } from '../../componentes/CurvaDia';
 import { CartaoRegistro } from '../../componentes/diario';
 import { Botao, Cartao, Carregando, Etiqueta, Icone, IconeRedondo, Mensagem, Tela, Texto } from '../../componentes/ui';
 import { useTema } from '../../contexto/TemaContexto';
-import { listarRegistros } from '../../servicos/api';
+import { buscarDataMaisAntiga, listarRegistros } from '../../servicos/api';
 import { dataISO, diasAtras, rotuloDia } from '../../util/diario';
 import { descobertaGentil, resumoDoDia } from '../../util/resumo';
 
-function SeletorDia({ dias, selecionado, aoEscolher, quantidade }) {
+const PASSO_DIAS = 60;
+
+function SeletorDia({ dias, selecionado, aoEscolher, quantidade, diasCarregados, aoCarregarMais, carregandoMais, temMaisAntigos }) {
   const { cores } = useTema();
   const [aberto, setAberto] = useState(false);
   return (
@@ -70,6 +72,25 @@ function SeletorDia({ dias, selecionado, aoEscolher, quantidade }) {
           ))}
         </View>
       ) : null}
+      {aberto ? (
+        <View style={{ marginTop: 12, gap: 6 }}>
+          {temMaisAntigos ? (
+            <>
+              <Texto variante="pequeno" cor="textoSuave">Mostrando os últimos {diasCarregados} dias.</Texto>
+              <Botao
+                titulo="Carregar registros mais antigos (+60 dias)"
+                tipo="secundario"
+                icone="history"
+                onPress={aoCarregarMais}
+                carregando={carregandoMais}
+                style={{ marginTop: 0 }}
+              />
+            </>
+          ) : (
+            <Texto variante="pequeno" cor="textoSuave">Esses são todos os seus registros.</Texto>
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -88,19 +109,33 @@ export default function TelaRegistros() {
   const [registros, setRegistros] = useState(null);
   const [diaEscolhido, setDiaEscolhido] = useState(null);
   const [erro, setErro] = useState('');
+  // Começa com os últimos 60 dias; "Carregar registros mais antigos" soma mais 60.
+  const [diasCarregados, setDiasCarregados] = useState(PASSO_DIAS);
+  const [carregandoMais, setCarregandoMais] = useState(false);
+  const [maisAntigo, setMaisAntigo] = useState(null); // data do 1º registro da pessoa
 
-  // Recarrega sempre que a aba ganha foco (ex.: depois de registrar ou alterar).
+  // Recarrega sempre que a aba ganha foco (ex.: depois de registrar ou alterar)
+  // e quando a pessoa pede dias mais antigos.
   useFocusEffect(
     useCallback(() => {
       let ativo = true;
-      listarRegistros({ de: diasAtras(59) })
-        .then((dados) => ativo && (setRegistros(dados), setErro('')))
-        .catch((e) => ativo && setErro(e.message));
+      Promise.all([listarRegistros({ de: diasAtras(diasCarregados - 1) }), buscarDataMaisAntiga()])
+        .then(([dados, primeiro]) => ativo && (setRegistros(dados), setMaisAntigo(primeiro), setErro('')))
+        .catch((e) => ativo && setErro(e.message))
+        .finally(() => ativo && setCarregandoMais(false));
       return () => {
         ativo = false;
       };
-    }, [])
+    }, [diasCarregados])
   );
+
+  // Ainda existe registro antes do período carregado?
+  const temMaisAntigos = maisAntigo !== null && maisAntigo < diasAtras(diasCarregados - 1);
+
+  function carregarMais() {
+    setCarregandoMais(true);
+    setDiasCarregados((n) => n + PASSO_DIAS);
+  }
 
   // Dias que têm registro (mais novo primeiro). Valores derivados, sem estado extra.
   const dias = useMemo(() => [...new Set((registros ?? []).map((r) => r.data))], [registros]);
@@ -130,8 +165,11 @@ export default function TelaRegistros() {
         <Mensagem texto={erro} />
         <Cartao style={{ alignItems: 'center', gap: 10 }}>
           <IconeRedondo nome="notebook-edit-outline" diametro={64} tamanho={30} />
-          <Texto centro cor="textoSuave">Nenhum registro nos últimos 60 dias. Que tal começar agora? Leva menos de um minuto.</Texto>
+          <Texto centro cor="textoSuave">Nenhum registro nos últimos {diasCarregados} dias. Que tal começar agora? Leva menos de um minuto.</Texto>
           <Botao titulo="Registrar como estou" icone="plus" onPress={() => router.push('/registrar')} />
+          {temMaisAntigos ? (
+            <Botao titulo="Procurar registros mais antigos" tipo="secundario" icone="history" onPress={carregarMais} carregando={carregandoMais} />
+          ) : null}
         </Cartao>
       </Tela>
     );
@@ -202,7 +240,16 @@ export default function TelaRegistros() {
     <Tela>
       {cabecalho}
       <Mensagem texto={erro} />
-      <SeletorDia dias={dias} selecionado={dia} aoEscolher={setDiaEscolhido} quantidade={doDia.length} />
+      <SeletorDia
+        dias={dias}
+        selecionado={dia}
+        aoEscolher={setDiaEscolhido}
+        quantidade={doDia.length}
+        diasCarregados={diasCarregados}
+        aoCarregarMais={carregarMais}
+        carregandoMais={carregandoMais}
+        temMaisAntigos={temMaisAntigos}
+      />
       {larga ? (
         <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
           <View style={{ flex: 1.2 }}>{graficoEResumo}</View>

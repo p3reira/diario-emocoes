@@ -1,7 +1,7 @@
 // Componentes específicos do diário: seletor de humor, cartão de registro,
 // formulário (usado em "Registrar" e em "Alterar") e o cartão de canais de ajuda.
-import { useState } from 'react';
-import { Linking, Pressable, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, Linking, Pressable, View } from 'react-native';
 import { useTema } from '../contexto/TemaContexto';
 import {
   CONTEXTOS,
@@ -228,6 +228,10 @@ export function FormRegistro({ inicial, aoSalvar, textoBotao = 'Salvar registro'
   const [dataTexto, setDataTexto] = useState(isoParaBr(inicial?.data ?? dataISO())); // DD/MM/AAAA
   const [hora, setHora] = useState(inicial?.hora ?? horaAtual());
   const [editandoQuando, setEditandoQuando] = useState(false);
+  // Num registro novo, data e hora acompanham o relógio até a pessoa mexer nelas.
+  // Sem isso, a aba Registrar (que fica montada) guardava o horário de quando foi
+  // aberta, e o registro saía com uma hora "congelada".
+  const [quandoManual, setQuandoManual] = useState(Boolean(inicial));
   const [atividades, setAtividades] = useState(inicial?.atividades ?? []);
   const [emocoes, setEmocoes] = useState(inicial?.emocoes ?? []);
   const [mostrarEmocoes, setMostrarEmocoes] = useState((inicial?.emocoes ?? []).length > 0);
@@ -235,26 +239,44 @@ export function FormRegistro({ inicial, aoSalvar, textoBotao = 'Salvar registro'
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
+  useEffect(() => {
+    if (quandoManual) return undefined;
+    const atualizar = () => {
+      setDataTexto(isoParaBr(dataISO()));
+      setHora(horaAtual());
+    };
+    atualizar();
+    const relogio = setInterval(atualizar, 15 * 1000);                  // a cada 15 s
+    const estado = AppState.addEventListener('change', (s) => s === 'active' && atualizar()); // voltou ao app
+    return () => {
+      clearInterval(relogio);
+      estado.remove();
+    };
+  }, [quandoManual]);
+
   const data = dataBrParaISO(dataTexto); // AAAA-MM-DD ou null
 
   async function salvar() {
+    // Sem ajuste manual, vale o momento exato do toque em Salvar.
+    const dataSalvar = quandoManual ? data : dataISO();
+    const horaSalvar = quandoManual ? hora : horaAtual();
     if (!humor) {
       setErro('Como você está agora? Toque em um dos rostinhos acima para salvar.');
       return;
     }
-    if (!data) {
+    if (!dataSalvar) {
       setEditandoQuando(true);
       setErro('Essa data não parece certa. Use o formato dia/mês/ano, por exemplo 20/11/2026.');
       return;
     }
-    if (!ehHoraValida(hora)) {
+    if (!ehHoraValida(horaSalvar)) {
       setEditandoQuando(true);
       setErro('Essa hora não parece certa. Use o formato 21:30, com horas de 00 a 23.');
       return;
     }
-    if (ehFuturo(data, hora)) return; // o aviso suave já aparece embaixo dos campos
+    if (ehFuturo(dataSalvar, horaSalvar)) return; // o aviso suave já aparece embaixo dos campos
     // Editar um registro antigo sem mudar a data continua permitido.
-    if (ehAntigoDemais(data) && data !== inicial?.data) {
+    if (ehAntigoDemais(dataSalvar) && dataSalvar !== inicial?.data) {
       setEditandoQuando(true);
       setErro(`Dá para registrar até ${DIAS_RETROATIVOS} dias atrás. Que tal escolher uma data mais recente?`);
       return;
@@ -262,7 +284,7 @@ export function FormRegistro({ inicial, aoSalvar, textoBotao = 'Salvar registro'
     setErro('');
     setSalvando(true);
     try {
-      await aoSalvar({ humor, data, hora, emocoes, atividades, nota: nota.trim() || null });
+      await aoSalvar({ humor, data: dataSalvar, hora: horaSalvar, emocoes, atividades, nota: nota.trim() || null });
     } catch (e) {
       setErro(e.message);
       setSalvando(false);
@@ -276,6 +298,7 @@ export function FormRegistro({ inicial, aoSalvar, textoBotao = 'Salvar registro'
   function voltarParaAgora() {
     setDataTexto(isoParaBr(dataISO()));
     setHora(horaAtual());
+    setQuandoManual(false); // volta a acompanhar o relógio
     setErro('');
   }
 
@@ -293,10 +316,10 @@ export function FormRegistro({ inicial, aoSalvar, textoBotao = 'Salvar registro'
       {editandoQuando ? (
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 3 }}>
-            <Campo rotulo="Data" value={dataTexto} onChangeText={(t) => setDataTexto(mascaraData(t))} placeholder="DD/MM/AAAA" maxLength={10} keyboardType="number-pad" />
+            <Campo rotulo="Data" value={dataTexto} onChangeText={(t) => { setDataTexto(mascaraData(t)); setQuandoManual(true); }} placeholder="DD/MM/AAAA" maxLength={10} keyboardType="number-pad" />
           </View>
           <View style={{ flex: 2 }}>
-            <Campo rotulo="Hora" value={hora} onChangeText={(t) => setHora(mascaraHora(t))} placeholder="HH:MM" maxLength={5} keyboardType="number-pad" />
+            <Campo rotulo="Hora" value={hora} onChangeText={(t) => { setHora(mascaraHora(t)); setQuandoManual(true); }} placeholder="HH:MM" maxLength={5} keyboardType="number-pad" />
           </View>
         </View>
       ) : null}

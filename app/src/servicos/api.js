@@ -82,13 +82,18 @@ export function cadastrar({ nome, sobrenome, email, usuario, senha }) {
 }
 
 export const buscarPerfil = () => requisitar('/usuarios/eu');
+// Se mudar e-mail ou senha, "campos" leva também a senhaAtual (a API confere).
 export const alterarPerfil = (campos) => requisitar('/usuarios/eu', { metodo: 'PUT', corpo: campos });
-export const excluirConta = () => requisitar('/usuarios/eu', { metodo: 'DELETE' });
+// Ações sem volta: a API só executa com a senha correta (reautenticação).
+export const excluirConta = (senha) => requisitar('/usuarios/eu', { metodo: 'DELETE', corpo: { senha } });
 export const darConsentimento = () => requisitar('/usuarios/eu/consentimento', { metodo: 'POST' });
 export const salvarPreferencias = (prefs) => requisitar('/usuarios/eu/preferencias', { metodo: 'PUT', corpo: prefs });
 export const exportarDados = () => requisitar('/usuarios/eu/exportar');
 
 // ---------- Registros do diário ----------
+
+// Data do registro mais antigo (ou null), para o Histórico saber se há mais para carregar.
+export const buscarDataMaisAntiga = () => requisitar('/registros/mais-antigo').then((d) => d.data);
 
 export function listarRegistros({ de, ate } = {}) {
   const filtros = new URLSearchParams();
@@ -102,4 +107,4 @@ export const buscarRegistro = (id) => requisitar(`/registros/${id}`);
 export const criarRegistro = (dados) => requisitar('/registros', { metodo: 'POST', corpo: dados });
 export const alterarRegistro = (id, dados) => requisitar(`/registros/${id}`, { metodo: 'PUT', corpo: dados });
 export const excluirRegistro = (id) => requisitar(`/registros/${id}`, { metodo: 'DELETE' });
-export const excluirTodosRegistros = () => requisitar('/registros', { metodo: 'DELETE' });
+export const excluirTodosRegistros = (senha) => requisitar('/registros', { metodo: 'DELETE', corpo: { senha } });

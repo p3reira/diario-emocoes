@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken')
 
 const UsuarioModel = require('../models/UsuarioModel')
 const RegistroModel = require('../models/RegistroModel')
+const { senhaConfere } = require('../utils/reautenticacao')
 
 const {
     responderRequisicaoInvalida,
@@ -229,6 +230,14 @@ class UsuarioController {
                 return responderRequisicaoInvalida(res, 'Informe ao menos um campo para alterar')
             }
 
+            // E-mail, usuário e senha são o acesso à conta: trocar qualquer um exige
+            // a senha atual. Nome e sobrenome continuam livres.
+            if (dados.email !== undefined || dados.usuario !== undefined || dados.senha !== undefined) {
+                if (!(await senhaConfere(req.usuarioLogado.id, req.body?.senhaAtual))) {
+                    return responderProibido(res, 'Senha atual incorreta') // 403, não 401: 401 faria o app sair da conta
+                }
+            }
+
             if (dados.senha) {
                 dados.senha = await bcrypt.hash(dados.senha, CUSTO_BCRYPT)
             }
@@ -327,6 +336,11 @@ class UsuarioController {
     // Apaga a conta e, pelo ON DELETE CASCADE, todos os registros dela.
     static async excluirMinhaConta(req, res) {
         try {
+            // Ação sem volta: confirma que é mesmo o dono da conta.
+            if (!(await senhaConfere(req.usuarioLogado.id, req.body?.senha))) {
+                return responderProibido(res, 'Senha incorreta. A conta não foi excluída.') // 403: não desloga
+            }
+
             const excluido = await UsuarioModel.deletar(req.usuarioLogado.id)
 
             if (!excluido) {

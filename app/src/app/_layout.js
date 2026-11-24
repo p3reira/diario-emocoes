@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessaoProvider, useSessao } from '../contexto/SessaoContexto';
 import { FONTES, TemaProvider, useTema } from '../contexto/TemaContexto';
+import { ConfirmacaoProvider } from '../componentes/confirmacao';
 import { apagarRelatoriosAntigos } from '../servicos/arquivos';
 
 function Pilha() {
@@ -75,7 +76,9 @@ export default function LayoutRaiz() {
     <SafeAreaProvider>
       <SessaoProvider>
         <TemaProvider>
-          <Pilha />
+          <ConfirmacaoProvider>
+            <Pilha />
+          </ConfirmacaoProvider>
         </TemaProvider>
       </SessaoProvider>
     </SafeAreaProvider>

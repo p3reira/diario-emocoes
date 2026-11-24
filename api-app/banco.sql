@@ -1,4 +1,4 @@
--- Estrutura completa do banco do app Diário de Emoções (versão 2.3.3).
+-- Estrutura completa do banco do app Diário de Emoções (versão 2.4.3).
 -- 1) Crie o banco:   CREATE DATABASE app_diario;
 -- 2) Conecte nele e rode este script inteiro.
 -- É o único script necessário: já cria tudo, inclusive a hora dos registros.

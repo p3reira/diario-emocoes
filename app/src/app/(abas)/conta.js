@@ -3,7 +3,9 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Botao, Campo, Cartao, Chip, Icone, Mensagem, Tela, Texto, confirmar } from '../../componentes/ui';
+import { Botao, Campo, Cartao, Chip, Icone, Mensagem, Tela, Texto } from '../../componentes/ui';
+import { useConfirmacao } from '../../componentes/confirmacao';
+import { cancelarLembretes, pedirPermissao } from '../../servicos/notificacoes';
 import { useSessao } from '../../contexto/SessaoContexto';
 import { useTema } from '../../contexto/TemaContexto';
 import * as api from '../../servicos/api';
@@ -35,6 +37,24 @@ export default function TelaConta() {
     }
   }
 
+  const confirmar = useConfirmacao();
+  const [avisoApagar, setAvisoApagar] = useState(null); // resposta dentro do cartão "Apagar"
+
+  // Ações sem volta: a janela pede a senha e a API confere antes de apagar.
+  async function apagarComSenha(chave, opcoes, acao) {
+    setAvisoApagar(null);
+    const { confirmado, senha } = await confirmar({ ...opcoes, perigo: true, pedirSenha: true });
+    if (!confirmado) return;
+    setOcupado(chave);
+    try {
+      await acao(senha);
+    } catch (e) {
+      setAvisoApagar({ tipo: 'erro', texto: e.message });
+    } finally {
+      setOcupado('');
+    }
+  }
+
   async function executar(chave, acao) {
     setOcupado(chave);
     setMensagem(null);
@@ -57,11 +77,21 @@ export default function TelaConta() {
     try {
       atualizarUsuario(await api.salvarPreferencias({ lembrete_hora: hora, ...extras }));
       setHoraPropria('');
-      setAvisoLembrete(
-        hora
-          ? { tipo: 'sucesso', texto: `Lembrete definido para ${hora}. Depois desse horário, se você ainda não registrou no dia, o Início avisa e o sino ganha um pontinho.` }
-          : { tipo: 'sucesso', texto: 'Lembrete desligado. Você pode ligar de novo quando quiser.' },
-      );
+      if (!hora) {
+        setAvisoLembrete({ tipo: 'sucesso', texto: 'Lembrete desligado. Você pode ligar de novo quando quiser.' });
+        return;
+      }
+      // Notificação do celular: pede permissão na hora em que a pessoa liga o lembrete.
+      const permissao = await pedirPermissao();
+      const extra = {
+        ok: ' O celular também vai te avisar nesse horário, só nos dias sem registro.',
+        negado: ' As notificações estão bloqueadas nas configurações do celular; o aviso fica só dentro do app.',
+        indisponivel: '',
+      }[permissao];
+      setAvisoLembrete({
+        tipo: 'sucesso',
+        texto: `Lembrete definido para ${hora}. Depois desse horário, se você ainda não registrou no dia, o Início avisa e o sino ganha um pontinho.${extra}`,
+      });
     } catch (e) {
       setAvisoLembrete({ tipo: 'erro', texto: e.message });
     }
@@ -235,30 +265,46 @@ export default function TelaConta() {
               tipo="perigo"
               icone="notebook-remove-outline"
               carregando={ocupado === 'registros'}
-              onPress={async () => {
-                if (!(await confirmar('Apagar todos os registros?', 'Todos os registros do seu diário serão apagados para sempre. A conta continua existindo.', 'Apagar tudo'))) return;
-                executar('registros', async () => {
-                  const { quantidade } = await api.excluirTodosRegistros();
-                  setMensagem({ tipo: 'sucesso', texto: `${quantidade} registro(s) apagado(s).` });
-                });
-              }}
+              onPress={() => apagarComSenha('registros', {
+                titulo: 'Apagar todos os registros?',
+                mensagem: 'Todos os registros do seu diário serão apagados para sempre. A conta continua existindo.',
+                textoConfirmar: 'Apagar tudo',
+              }, async (senha) => {
+                const { quantidade } = await api.excluirTodosRegistros(senha);
+                setAvisoApagar({ tipo: 'sucesso', texto: `${quantidade} registro(s) apagado(s).` });
+              })}
             />
             <Botao
               titulo="Excluir minha conta"
               tipo="perigo"
               icone="account-remove-outline"
               carregando={ocupado === 'conta'}
-              onPress={async () => {
-                if (!(await confirmar('Excluir sua conta?', 'Sua conta e TODOS os registros serão apagados para sempre. Não é possível desfazer.', 'Excluir conta'))) return;
-                executar('conta', async () => {
-                  await api.excluirConta();
-                  sair({ texto: 'Sua conta e todos os seus dados foram excluídos.', tipo: 'sucesso' });
-                });
-              }}
+              onPress={() => apagarComSenha('conta', {
+                titulo: 'Excluir sua conta?',
+                mensagem: 'Sua conta e TODOS os registros serão apagados para sempre. Não é possível desfazer.',
+                textoConfirmar: 'Excluir conta',
+              }, async (senha) => {
+                await api.excluirConta(senha);
+                await cancelarLembretes();
+                sair({ texto: 'Sua conta e todos os seus dados foram excluídos.', tipo: 'sucesso' });
+              })}
             />
+            {avisoApagar ? (
+              <View style={{ marginTop: 10 }}>
+                <Mensagem texto={avisoApagar.texto} tipo={avisoApagar.tipo} />
+              </View>
+            ) : null}
           </Cartao>
 
-          <Botao titulo="Sair" tipo="secundario" icone="logout" onPress={() => sair()} />
+          <Botao
+            titulo="Sair"
+            tipo="secundario"
+            icone="logout"
+            onPress={async () => {
+              await cancelarLembretes(); // outra pessoa pode entrar neste celular
+              sair();
+            }}
+          />
         </View>
       </View>
     </Tela>

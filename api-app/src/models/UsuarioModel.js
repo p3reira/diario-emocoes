@@ -28,6 +28,16 @@ class UsuarioModel {
 
     // Único método que devolve a senha (o hash), porque o login precisa conferir.
     // O controlador remove a senha antes de responder.
+    // Só o hash da senha, para a reautenticação (utils/reautenticacao.js).
+    static async buscarHashSenha(id) {
+        try {
+            const result = await db.query('SELECT senha FROM usuarios WHERE id = $1', [id])
+            return result.rows[0]?.senha || null
+        } catch (error) {
+            throw relancar('Erro ao conferir a senha', error)
+        }
+    }
+
     static async buscarParaLogin(login) {
         try {
             const result = await db.query(

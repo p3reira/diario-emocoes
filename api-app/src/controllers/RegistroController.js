@@ -1,5 +1,6 @@
 const RegistroModel = require('../models/RegistroModel')
 const UsuarioModel = require('../models/UsuarioModel')
+const { senhaConfere } = require('../utils/reautenticacao')
 
 const {
     responderRequisicaoInvalida,
@@ -126,6 +127,17 @@ const validarRegistro = (corpo, { parcial = false } = {}) => {
 // informa "de quem" é o registro, então não tem como mexer nos de outra pessoa.
 class RegistroController {
 
+    // GET /api/registros/mais-antigo → { data: 'AAAA-MM-DD' | null }
+    static async maisAntigo(req, res) {
+        try {
+            const data = await RegistroModel.dataMaisAntiga(req.usuarioLogado.id)
+            return res.status(200).json({ sucesso: true, dados: { data } })
+        } catch (error) {
+            console.error('Erro ao buscar o registro mais antigo:', error.message)
+            return responderErroInterno(res)
+        }
+    }
+
     static async listar(req, res) {
         try {
             const { de, ate } = req.query
@@ -229,6 +241,11 @@ class RegistroController {
 
     static async excluirTodos(req, res) {
         try {
+            // Apagar o diário inteiro não tem volta: exige a senha.
+            if (!(await senhaConfere(req.usuarioLogado.id, req.body?.senha))) {
+                return responderProibido(res, 'Senha incorreta. Nenhum registro foi apagado.') // 403: não desloga
+            }
+
             const quantidade = await RegistroModel.excluirTodos(req.usuarioLogado.id)
 
             return res.status(200).json({

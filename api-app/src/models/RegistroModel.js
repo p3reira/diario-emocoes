@@ -12,6 +12,16 @@ const COLUNAS = `id, to_char(data, 'YYYY-MM-DD') AS data, to_char(hora, 'HH24:MI
 class RegistroModel {
 
     // de/ate são opcionais ('AAAA-MM-DD'), usados no histórico e no relatório PDF.
+    // Data do registro mais antigo da pessoa (ou null): o Histórico usa para saber
+    // se ainda há registros mais antigos para carregar.
+    static async dataMaisAntiga(usuarioId) {
+        const result = await db.query(
+            `SELECT to_char(MIN(data), 'YYYY-MM-DD') AS data FROM registros WHERE usuario_id = $1`,
+            [usuarioId]
+        )
+        return result.rows[0]?.data ?? null
+    }
+
     static async listar(usuarioId, { de, ate } = {}) {
         const condicoes = ['usuario_id = $1']
         const valores = [usuarioId]

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Diário de Emoções",
     "slug": "diario-emocoes",
-    "version": "2.3.3",
+    "version": "2.4.3",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -36,7 +36,8 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ],
     "scheme": "diarioemocoes"
   }
